@@ -79,6 +79,11 @@
             ' ': '/'
         };
 
+        const reverseMorseCode = Object.keys(morseCode).reduce((obj, key) => {
+            obj[morseCode[key]] = key;
+            return obj;
+        }, {});
+
         function encode() {
             let input = document.getElementById('inputText').value.toUpperCase();
             let output = '';
@@ -93,17 +98,19 @@
         }
 
         function decode() {
-            let input = document.getElementById('inputText').value.toUpperCase();
+            let input = document.getElementById('inputText').value.toUpperCase().split(' ');
             let output = '';
-            let words = input.split(' ');
-            for (let word of words) {
-                let morseWord = '';
-                for (let i = 0; i < word.length; i++) {
-                    if (morseCode[word[i]]) {
-                        morseWord += Object.keys(morseCode).find(k => morseCode[k] === word[i]) + ' ';
+            for (let word of input) {
+                let letters = word.split('');
+                let decodedWord = '';
+                for (let morse of letters) {
+                    if (reverseMorseCode.hasOwnProperty(morse)) {
+                        decodedWord += reverseMorseCode[morse];
+                    } else {
+                        decodedWord += ' ';
                     }
                 }
-                output += morseWord.trim() + ' ';
+                output += decodedWord + ' ';
             }
             document.getElementById('outputText').value = output.trim();
         }
