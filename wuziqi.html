@@ -150,7 +150,6 @@
         
         // 初始化游戏
         function initGame() {
-            // 清空棋盘
             boardElement.innerHTML = '';
             board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
             currentPlayer = playerFirst ? PLAYER : AI;
@@ -158,14 +157,12 @@
             
             // 创建棋盘网格
             for (let i = 0; i < BOARD_SIZE; i++) {
-                // 水平线
                 const horizontalLine = document.createElement('div');
                 horizontalLine.className = 'line horizontal';
                 horizontalLine.style.top = (i * CELL_SIZE + CELL_SIZE / 2) + 'px';
                 horizontalLine.style.width = (BOARD_SIZE * CELL_SIZE) + 'px';
                 boardElement.appendChild(horizontalLine);
                 
-                // 垂直线
                 const verticalLine = document.createElement('div');
                 verticalLine.className = 'line vertical';
                 verticalLine.style.left = (i * CELL_SIZE + CELL_SIZE / 2) + 'px';
@@ -187,10 +184,8 @@
                 boardElement.appendChild(starPoint);
             });
             
-            // 设置状态
             statusElement.textContent = playerFirst ? "你的回合(黑棋)" : "AI的回合(黑棋)";
             
-            // 如果AI先手，让AI下第一步
             if (!playerFirst && !gameOver) {
                 setTimeout(makeAIMove, 500);
             }
@@ -234,31 +229,26 @@
         
         // 下棋
         function makeMove(x, y) {
-            // 更新棋盘数组
             board[y][x] = currentPlayer;
             
-            // 创建棋子元素
             const piece = document.createElement('div');
             piece.className = `piece ${currentPlayer === PLAYER ? 'black' : 'white'}`;
             piece.style.left = (x * CELL_SIZE + CELL_SIZE / 2) + 'px';
             piece.style.top = (y * CELL_SIZE + CELL_SIZE / 2) + 'px';
             boardElement.appendChild(piece);
             
-            // 检查是否获胜
             if (isGameWon(currentPlayer)) {
                 gameOver = true;
                 statusElement.textContent = currentPlayer === PLAYER ? "恭喜你赢了！" : "AI赢了！";
                 return;
             }
             
-            // 检查是否平局
             if (isBoardFull()) {
                 gameOver = true;
                 statusElement.textContent = "平局！";
                 return;
             }
             
-            // 切换玩家
             currentPlayer = currentPlayer === PLAYER ? AI : PLAYER;
             statusElement.textContent = currentPlayer === PLAYER ? "你的回合(黑棋)" : "AI的回合";
         }
@@ -266,163 +256,211 @@
         // AI移动
         function makeAIMove() {
             if (gameOver) return;
-            
-            // AI逻辑 - 简单实现
+
+            // 如果AI先手，第一手下在中心
+            if (board[7][7] === 0) {
+                makeMove(7, 7);
+                return;
+            }
+
+            // 获取所有可能的移动位置
+            const possibleMoves = getPossibleMoves();
+
+            // 检查是否有可以获胜的一步
+            for (const move of possibleMoves) {
+                const { x, y } = move;
+                board[y][x] = AI;
+                if (isGameWon(AI)) {
+                    makeMove(x, y);
+                    return;
+                }
+                board[y][x] = 0; // 恢复棋盘
+            }
+
+            // 检查并阻止玩家获胜
+            for (const move of possibleMoves) {
+                const { x, y } = move;
+                board[y][x] = PLAYER;
+                if (isGameWon(PLAYER)) {
+                    board[y][x] = AI; // AI下棋堵住
+                    makeMove(x, y);
+                    return;
+                }
+                board[y][x] = 0; // 恢复棋盘
+            }
+
+            // 检查玩家是否有三个子连成一线并堵住
+            for (const move of possibleMoves) {
+                const { x, y } = move;
+                board[y][x] = PLAYER;
+                if (isThreeInARow(PLAYER, x, y)) {
+                    board[y][x] = AI; // AI下棋堵住
+                    makeMove(x, y);
+                    return;
+                }
+                board[y][x] = 0; // 恢复棋盘
+            }
+
+            // 寻找最佳位置
             let bestScore = -Infinity;
             let moveX = 0, moveY = 0;
-            
-            // 首先检查是否有可以获胜的一步
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    if (board[y][x] === 0) {
-                        board[y][x] = AI;
-                        if (isGameWon(AI)) {
-                            moveX = x;
-                            moveY = y;
-                            board[y][x] = 0;
-                            makeMove(moveX, moveY);
-                            return;
-                        }
-                        board[y][x] = 0;
-                    }
+
+            for (const move of possibleMoves) {
+                const { x, y } = move;
+                board[y][x] = AI;
+                const score = evaluatePosition(x, y);
+                board[y][x] = 0;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    moveX = x;
+                    moveY = y;
                 }
             }
-            
-            // 然后检查玩家是否有可以获胜的一步并阻止
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    if (board[y][x] === 0) {
-                        board[y][x] = PLAYER;
-                        if (isGameWon(PLAYER)) {
-                            moveX = x;
-                            moveY = y;
-                            board[y][x] = 0;
-                            makeMove(moveX, moveY);
-                            return;
-                        }
-                        board[y][x] = 0;
-                    }
-                }
-            }
-            
-            // 如果没有获胜或阻止的机会，寻找最佳位置
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    if (board[y][x] === 0) {
-                        board[y][x] = AI;
-                        const score = evaluatePosition(x, y);
-                        board[y][x] = 0;
-                        
-                        if (score > bestScore) {
-                            bestScore = score;
-                            moveX = x;
-                            moveY = y;
-                        }
-                    }
-                }
-            }
-            
+
             makeMove(moveX, moveY);
         }
-        
-        // 评估位置的价值
-        function evaluatePosition(x, y) {
-            // 这里是一个简单的评估函数，可以进一步优化
-            // 统计周围棋子的数量，优先选择靠近已有棋子的位置
-            
-            let score = 0;
-            
-            // 检查上下左右四个方向
+
+        // 获取所有可能的移动位置
+        function getPossibleMoves() {
+            const moves = [];
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x] === 0) {
+                        moves.push({ x, y });
+                    }
+                }
+            }
+            return moves;
+        }
+
+        // 检查是否有三个子连成一线
+        function isThreeInARow(player, x, y) {
             const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-            
+
             for (const [dx, dy] of directions) {
                 let count = 0;
-                
-                // 向一个方向统计连续的同色棋子
+
+                // 检查正方向
+                for (let i = 1; i <= 3; i++) {
+                    const nx = x + dx * i;
+                    const ny = y + dy * i;
+
+                    if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE || board[ny][nx] !== player) {
+                        break;
+                    }
+                    count++;
+                }
+
+                // 检查反方向
+                for (let i = 1; i <= 3; i++) {
+                    const nx = x - dx * i;
+                    const ny = y - dy * i;
+
+                    if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE || board[ny][nx] !== player) {
+                        break;
+                    }
+                    count++;
+                }
+
+                if (count >= 2) return true;
+            }
+
+            return false;
+        }
+
+        // 评估位置的价值
+        function evaluatePosition(x, y) {
+            let score = 0;
+            const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+            for (const [dx, dy] of directions) {
+                let count = 0;
+
+                // 检查正方向
                 for (let i = 1; i <= 4; i++) {
                     const nx = x + dx * i;
                     const ny = y + dy * i;
-                    
+
                     if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE) break;
-                    
+
                     if (board[ny][nx] === AI) {
                         count++;
                     } else {
                         break;
                     }
                 }
-                
-                // 向相反方向统计
+
+                // 检查反方向
                 for (let i = 1; i <= 4; i++) {
                     const nx = x - dx * i;
                     const ny = y - dy * i;
-                    
+
                     if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE) break;
-                    
+
                     if (board[ny][nx] === AI) {
                         count++;
                     } else {
                         break;
                     }
                 }
-                
-                // 根据连续棋子数量给分
+
                 if (count >= 4) return 10000; // 必胜点
                 if (count >= 3) score += 1000;
                 if (count >= 2) score += 100;
                 if (count >= 1) score += 10;
             }
-            
+
             // 额外奖励靠近中心的位置
             const centerX = BOARD_SIZE / 2;
             const centerY = BOARD_SIZE / 2;
             const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
             score += Math.max(0, 50 - distance);
-            
+
             return score;
         }
-        
+
         // 检查游戏是否获胜
         function isGameWon(player) {
             const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-            
+
             for (let y = 0; y < BOARD_SIZE; y++) {
                 for (let x = 0; x < BOARD_SIZE; x++) {
                     if (board[y][x] === player) {
                         for (const [dx, dy] of directions) {
                             let count = 1;
-                            
+
                             // 检查正方向
                             for (let i = 1; i <= 4; i++) {
                                 const nx = x + dx * i;
                                 const ny = y + dy * i;
-                                
+
                                 if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE || board[ny][nx] !== player) {
                                     break;
                                 }
                                 count++;
                             }
-                            
+
                             // 检查反方向
                             for (let i = 1; i <= 4; i++) {
                                 const nx = x - dx * i;
                                 const ny = y - dy * i;
-                                
+
                                 if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE || board[ny][nx] !== player) {
                                     break;
                                 }
                                 count++;
                             }
-                            
+
                             if (count >= 5) return true;
                         }
                     }
                 }
             }
-            
+
             return false;
         }
-        
+
         // 检查棋盘是否满
         function isBoardFull() {
             for (let y = 0; y < BOARD_SIZE; y++) {
@@ -434,7 +472,7 @@
             }
             return true;
         }
-        
+
         // 初始化游戏
         initGame();
     </script>
